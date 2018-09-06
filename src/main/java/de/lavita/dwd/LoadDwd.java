@@ -183,8 +183,20 @@ public class LoadDwd {
         }
         @Override
         public String toString() {
-            return (""+getStat()+";"+outputformat.format(getDate())+";"+getQn()+";"+getTg()+";"+getTn()+";"+getTm()+";"+getTx()+";"+getRfm()+";"+getFm()+";"+getFx()+";"+getSo()+";"+getNm()+";"+getRr()+";"+getPm()).replaceAll("null", ""); //To change body of generated methods, choose Tools | Templates.
-            
+            return (""+getStat()+";"+
+                    outputformat.format(getDate())+";"+
+                    getQn()+";"+
+                    getTg()+";"+
+                    getTn()+";"+
+                    getTm()+";"+
+                    getTx()+";"+
+                    getRfm()+";"+
+                    getFm()+";"+
+                    getFx()+";"+
+                    getSo()+";"+
+                    getNm()+";"+
+                    getRr()+";"+
+                    getPm()).replaceAll("null", "");
         }
         
         
@@ -197,7 +209,14 @@ public class LoadDwd {
             System.out.println(b);
         }
     }
-
+/**
+ * getDataFromStation retrieves historic weather data from DWD 
+ * @param station
+ * @return a list of DataBeans 
+ * @throws MalformedURLException
+ * @throws ProtocolException
+ * @throws IOException 
+ */
     public static List<DataBean> getDataFromStation(String station) throws MalformedURLException, ProtocolException, IOException {
         String resultUrl = "https://www.dwd.de/DE/leistungen/klimadatendeutschland/klimadatendeutschland.html?view=renderJsonResults&undefined=Absenden&cl2Categories_LeistungsId=klimadatendeutschland&cl2Categories_Station="
                 +station+"&cl2Categories_ZeitlicheAufloesung=klimadatendeutschland_tageswerte&cl2Categories_Format=text";
@@ -217,7 +236,11 @@ public class LoadDwd {
         }
         return l;
     }
-
+    /**
+     * parseStations gets the list of weather stations and retrieves their data
+     * All data is kept in memory and only returned when successful
+     * @return a list of DataBeans
+     */
     public static List<DataBean> parseStations()  {
         try {
             String stationsUrl = "https://www.dwd.de/DE/leistungen/klimadatendeutschland/klimadatendeutschland.json?view=renderJson&undefined=Absenden&cl2Categories_LeistungsId=klimadatendeutschland&cl2Categories_Station=klimadatendeutschland_berlintempelhof&cl2Categories_ZeitlicheAufloesung=klimadatendeutschland_tageswerte&cl2Categories_Format=text";
