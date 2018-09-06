@@ -24,8 +24,11 @@ import java.util.Map;
  * @author nik
  */
 public class LoadDwd {
-    static SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+    static SimpleDateFormat parseFormat = new SimpleDateFormat("yyyyMMdd");
     static SimpleDateFormat outputformat = new SimpleDateFormat("dd.MM.yyyy");
+    /**
+     * This describes the position of fields in the fixed width text file
+     */
     enum FilePosition{
         STAT(0,5),
         DATE(5,14),
@@ -48,28 +51,33 @@ public class LoadDwd {
             this.startPos = startPos;
             this.endPos = endPos;
         }
-        
-        public static FilePosition getPosition(int pos){
-            for (FilePosition s: FilePosition.values()){
-                if (pos >=s.startPos && pos<s.endPos){
-                    return s;
+        /**
+         * get the field that corresponds to the column (or pos)
+         * @param pos
+         * @return FilePosition, which is the field of the file
+         */
+        static FilePosition getPosition(int pos){
+            for (FilePosition field: FilePosition.values()){
+                if (pos >=field.startPos && pos<field.endPos){ //there are probably faster ways of doing this, but this is fast enough
+                    return field;
                 }
             }
             throw new RuntimeException("position out of range: "+pos);
         } 
     }
+    /**
+     * A single result line
+     */
     public static class  DataBean{
-        
-        private final Map<FilePosition,String> result;
-
+        private final Map<FilePosition,StringBuilder> result;
         public DataBean(String line) {
             result= new HashMap<>();
             for (int pos =0;pos<line.length();pos++){
                         FilePosition fp = FilePosition.getPosition(pos);
                         if (!result.containsKey(fp)){
-                            result.put(fp, "");
+                            result.put(fp, new StringBuilder());
                         }
-                        result.put(fp, result.get(fp).concat(""+line.charAt(pos)));
+                        result.get(fp).append(line.charAt(pos));
                     }
         }
 
@@ -77,7 +85,7 @@ public class LoadDwd {
          * @return the stat
          */
         public Long getStat() {
-            return Long.parseLong(result.get(FilePosition.STAT));
+            return Long.parseLong(result.get(FilePosition.STAT).toString());
         }
 
         /**
@@ -85,7 +93,7 @@ public class LoadDwd {
          */
         public Date getDate(){
             try {
-                return sdf.parse(result.get(FilePosition.DATE).trim());
+                return parseFormat.parse(result.get(FilePosition.DATE).toString().trim());
             } catch (ParseException ex) {
                 throw new RuntimeException(ex);
             }
@@ -175,7 +183,7 @@ public class LoadDwd {
             return getDouble(FilePosition.PM);
         }
         private Double getDouble(FilePosition fp){
-            String s = result.get(fp);
+            String s = result.get(fp).toString();
             if (s==null|| s.trim().isEmpty()){
                 return null;
             }
@@ -220,7 +228,7 @@ public class LoadDwd {
     public static List<DataBean> getDataFromStation(String station) throws MalformedURLException, ProtocolException, IOException {
         String resultUrl = "https://www.dwd.de/DE/leistungen/klimadatendeutschland/klimadatendeutschland.html?view=renderJsonResults&undefined=Absenden&cl2Categories_LeistungsId=klimadatendeutschland&cl2Categories_Station="
                 +station+"&cl2Categories_ZeitlicheAufloesung=klimadatendeutschland_tageswerte&cl2Categories_Format=text";
-        List<DataBean> l = new ArrayList<>();
+        List<DataBean> result = new ArrayList<>();
         URL url = new URL(resultUrl);
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
@@ -229,12 +237,12 @@ public class LoadDwd {
             while((line=in.readLine())!=null){ //don't use streaming api, so it works in older java
                 if (line.matches("\\d+.*")) {
                     DataBean d = new DataBean(line);
-                    l.add(d);
+                    result.add(d);
                     //System.out.println(d);
                 }
             }
         }
-        return l;
+        return result;
     }
     /**
      * parseStations gets the list of weather stations and retrieves their data
@@ -244,20 +252,26 @@ public class LoadDwd {
     public static List<DataBean> parseStations()  {
         try {
             String stationsUrl = "https://www.dwd.de/DE/leistungen/klimadatendeutschland/klimadatendeutschland.json?view=renderJson&undefined=Absenden&cl2Categories_LeistungsId=klimadatendeutschland&cl2Categories_Station=klimadatendeutschland_berlintempelhof&cl2Categories_ZeitlicheAufloesung=klimadatendeutschland_tageswerte&cl2Categories_Format=text";
-            final JsonObject asJsonObject = loadJsonfromUrl(new URL(stationsUrl)).getAsJsonObject().get("cl2Categories_Station").getAsJsonObject();
-            List<DataBean> l = new ArrayList<>();
-            for (String s: asJsonObject.keySet()){
-                String station = asJsonObject.get(s).getAsJsonObject().get("val").getAsString();
-                l.addAll(getDataFromStation(station));
+            final JsonObject json = loadJsonfromUrl(new URL(stationsUrl)).getAsJsonObject().get("cl2Categories_Station").getAsJsonObject();
+            List<DataBean> result = new ArrayList<>();
+            for (String s: json.keySet()){
+                String station = json.get(s).getAsJsonObject().get("val").getAsString();
+                result.addAll(getDataFromStation(station));
             }
-            return l;
+            return result;
         } catch (IOException ex) {
             throw new RuntimeException(ex);
            
         }
     }
     
-    public static JsonElement loadJsonfromUrl(URL url) throws IOException{
+    /**
+     * Load json from a URL
+     * @param url
+     * @return a JsonElement 
+     * @throws IOException 
+     */
+    private static JsonElement loadJsonfromUrl(URL url) throws IOException{
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
         JsonElement e;
